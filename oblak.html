@@ -173,7 +173,7 @@ footer strong{color:var(--ink)}
 
 <div class="arch">
 <div class="archrow">
-<div class="node"><b>Home network</b><small>FritzBox · Ethernet · LAN</small></div>
+<div class="node"><b>Home network</b><small>router · Ethernet · LAN</small></div>
 <div class="arrow">→</div>
 <div class="node"><b>OBLAK</b><small>Debian · Docker · NVMe</small></div>
 <div class="arrow">→</div>
@@ -200,7 +200,7 @@ footer strong{color:var(--ink)}
 <div class="step"><strong>First login</strong><pre>ssh &lt;user&gt;@oblak.local
 sudo apt update && sudo apt full-upgrade -y</pre></div>
 </div>
-<div class="note"><b>Network identity:</b> reserve <code>192.168.178.3</code> for OBLAK in the FritzBox DHCP settings.</div>
+<div class="note"><b>Network identity:</b> reserve <code>&lt;oblak-ip&gt;</code> for OBLAK in the router DHCP settings.</div>
 </div>
 </div>
 
@@ -236,7 +236,7 @@ sudo usermod -aG docker $USER</pre>
 <p><b>/etc/docker/daemon.json</b></p>
 <pre>{
   "data-root": "/OBLAK/Programi/docker",
-  "dns": ["192.168.178.3"],
+  "dns": ["&lt;oblak-ip&gt;"],
   "ipv6": false
 }</pre>
 <pre>sudo systemctl restart docker</pre>
@@ -266,7 +266,7 @@ PublicKey = &lt;client public key&gt;
 AllowedIPs = 10.9.0.x/32</pre></div>
 </div>
 <pre>sudo systemctl enable --now wg-quick@wg0</pre>
-<div class="note"><b>FritzBox:</b> forward UDP 51820 to OBLAK. Disable unnecessary outward exposure such as UPnP, WPS and remote administration. Verify externally that only the intended port is visible.</div>
+<div class="note"><b>router:</b> forward UDP 51820 to OBLAK. Disable unnecessary outward exposure such as UPnP, WPS and remote administration. Verify externally that only the intended port is visible.</div>
 </div>
 </div>
 
@@ -355,7 +355,7 @@ Description=oblak e-paper display
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/oblak/epapper.py
+ExecStart=/usr/bin/python3 /home/&lt;user&gt;/epapper.py
 Restart=always
 
 [Install]
@@ -363,8 +363,8 @@ WantedBy=multi-user.target</pre>
 <pre>sudo systemctl enable --now epapper.service</pre>
 <div class="note">Render portrait at 240×360 and rotate into the native 360×240 framebuffer. Use <code>lut_DU</code> for fast updates and a periodic <code>lut_GC</code> pass to clear ghosting. The screen can show TEMP / CPU / RAM / DISK and switch to cover art when music plays.</div>
 <details class="sub"><summary>Backup routine</summary>
-<div style="padding-bottom:14px"><pre>rsync -a /OBLAK/ zvucnik:/mnt/backup_drive/oblak2/data/
-ssh zvucnik "dd if=/dev/mmcblk0 bs=4M | gzip" \
+<div style="padding-bottom:14px"><pre>rsync -a /OBLAK/ &lt;backup-host&gt;:&lt;backup-path&gt;/
+ssh &lt;backup-host&gt; "dd if=/dev/mmcblk0 bs=4M | gzip" \
   > sdcard_$(date +%F).img.gz
 PIPE_STATUS=("${PIPESTATUS[@]}")</pre>
 <p>Weekly timer:</p><pre>[Timer]

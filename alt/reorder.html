@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reorder images</title>
+<style>
+  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: #f4f4f4; color: #000; }
+  header { position: sticky; top: 0; z-index: 10; background: #fff; border-bottom: 1px solid #ddd;
+           padding: 12px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; padding: 8px 14px; border: 1px solid #000; background: #fff; border-radius: 4px; cursor: pointer; }
+  button.primary { background: #000; color: #fff; }
+  button:disabled { opacity: .35; cursor: default; }
+  #status { color: #555; }
+  #hint { padding: 12px 16px 0; color: #555; max-width: 900px; }
+  #layout { display: flex; align-items: flex-start; }
+  #grid { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; padding: 16px; }
+  #panel { position: sticky; top: 76px; flex: none; width: 270px; margin: 16px 16px 16px 0; padding: 14px;
+           background: #fff; border: 1px solid #ddd; border-radius: 4px; max-height: calc(100vh - 110px); overflow: auto; }
+  #pName { font-weight: 600; word-break: break-all; }
+  #pNote { color: #666; font-size: 12px; margin: 6px 0 4px; }
+  #fields label { display: block; margin-top: 10px; font-size: 12px; color: #555; }
+  #fields input { display: block; width: 100%; box-sizing: border-box; margin-top: 3px; padding: 6px 8px;
+                  font: inherit; color: #000; border: 1px solid #bbb; border-radius: 4px; }
+  #pClear { margin-top: 14px; font-size: 12px; padding: 5px 10px; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; position: relative; cursor: pointer; }
+  .card.selected { outline: 2px solid #06c; }
+  .card.over { outline: 2px solid #000; }
+  .card.dragging { opacity: .35; }
+  .thumb { cursor: grab; position: relative; }
+  .thumb img { width: 100%; aspect-ratio: 4/3; object-fit: contain; display: block; background: #eee; pointer-events: none; }
+  .num { position: absolute; top: 6px; left: 6px; background: #000; color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 3px; }
+  .new { position: absolute; top: 6px; right: 6px; background: #2a7; color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 3px; }
+  .file { font-size: 12px; padding: 6px 8px; border-top: 1px solid #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sum { font-size: 12px; font-weight: 600; padding: 0 8px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <button id="pick" class="primary">Choose site folder…</button>
+  <button id="save" disabled>Save images.json</button>
+  <button id="loadOrder">Load order file…</button>
+  <span id="status">Choose the folder that contains index.html and images/</span>
+</header>
+
+<div id="hint">
+  Drag a photo by its picture to move it. Click a photo to fill in its info. A photo with info starts a project:
+  all following photos belong to it until the next photo with info (same colour bar on top).
+  Dragging a project's first photo moves the whole project; hold Shift to move only that one photo.
+  The filename (without extension) is no longer shown on the site, only the info after a click.
+</div>
+
+<div id="layout">
+  <div id="grid"></div>
+  <aside id="panel">
+    <div id="panelEmpty">Click a photo to edit its info.</div>
+    <div id="panelBody" hidden>
+      <div id="pName"></div>
+      <div id="pNote"></div>
+      <div id="fields"></div>
+      <button id="pClear">Remove info from this photo</button>
+    </div>
+  </aside>
+</div>
+
+<input id="fallback" type="file" webkitdirectory hidden>
+<input id="orderFile" type="file" accept=".json,application/json" hidden>
+
+<script>
+  const FIELDS = ['function', 'year', 'location', 'author'];   // change the names here if you want other labels
+  const IMG_EXT = /\.(jpe?g|png|webp|gif)$/i;
+  const $ = id => document.getElementById(id);
+  let items = [], lastFiles = [], dirHandle = null, selected = null, dirty = false;
+  let dragItem = null, dragBlock = [], blockMode = false;
+  const inputs = {};
+
+  const natCmp = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  function setStatus(t) { $('status').textContent = t; }
+  function setDirty(v) { dirty = v; $('save').disabled = !v; if (v) setStatus('Unsaved changes'); }
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ---------- info panel ---------- */
+  FIELDS.forEach(f => {
+    const label = document.createElement('label'); label.textContent = f;
+    const input = document.createElement('input'); input.placeholder = f; input.oninput = onFieldInput;
+    label.append(input); $('fields').append(label); inputs[f] = input;
+  });
+
+  function onFieldInput() {
+    if (!selected) return;
+    const vals = {};
+    FIELDS.forEach(f => { vals[f] = inputs[f].value; });
+    selected.info = FIELDS.every(f => !vals[f].trim()) ? null : vals;
+    refresh(); setDirty(true);
+  }
+  $('pClear').onclick = () => {
+    if (!selected) return;
+    FIELDS.forEach(f => { inputs[f].value = ''; });
+    selected.info = null; refresh(); setDirty(true);
+  };
+
+  function select(item) {
+    selected = item;
+    document.querySelectorAll('.card.selected').forEach(c => c.classList.remove('selected'));
+    if (item) item.el.classList.add('selected');
+    showPanel();
+  }
+  function showPanel() {
+    $('panelEmpty').hidden = !!selected;
+    $('panelBody').hidden = !selected;
+    if (!selected) return;
+    $('pName').textContent = selected.file;
+    FIELDS.forEach(f => { inputs[f].value = selected.info ? selected.info[f] : ''; });
+    updateNote();
+  }
+  function updateNote() {
+    if (!selected) return;
+    const idx = items.indexOf(selected);
+    if (selected.info) $('pNote').textContent = 'Starts a project: this info applies to all following photos until the next photo with info.';
+    else {
+      const s = projectStart(idx);
+      $('pNote').textContent = s >= 0
+        ? 'No own info - uses the info of ' + items[s].file + '. Fill in a field to start a new project here.'
+        : 'No info yet. Fill in a field to start a project here.';
+    }
+  }
+
+  /* ---------- projects ---------- */
+  function projectStart(idx) { for (let k = idx; k >= 0; k--) if (items[k].info) return k; return -1; }
+  function projectEnd(s) { let e = s + 1; while (e < items.length && !items[e].info) e++; return e; }
+  function firstStart() { const k = items.findIndex(i => i.info); return k < 0 ? items.length : k; }
+  function projectRange(idx) { const s = projectStart(idx); return s < 0 ? [0, firstStart()] : [s, projectEnd(s)]; }
+
+  /* ---------- load ---------- */
+  $('pick').onclick = async () => {
+    if (!window.showDirectoryPicker) { $('fallback').click(); return; }   // Firefox / Safari
+    try {
+      dirHandle = await showDirectoryPicker({ mode: 'readwrite' });
+      let imgDir;
+      try { imgDir = await dirHandle.getDirectoryHandle('images'); }
+      catch (e) { imgDir = dirHandle; }                                   // user picked the images folder itself
+      const files = [];
+      for await (const [name, h] of imgDir.entries()) {
+        if (h.kind === 'file' && IMG_EXT.test(name)) files.push({ name, file: await h.getFile() });
+      }
+      if (!files.length) { alert('No images found. Choose the folder that contains index.html and the "images" folder.'); return; }
+      if (imgDir === dirHandle) { alert('You chose the images folder itself. Please choose the folder ABOVE it (the one with index.html), so images.json can be saved there.'); return; }
+      let json = null;
+      try { json = await (await (await dirHandle.getFileHandle('images.json')).getFile()).text(); } catch (e) {}
+      build(files, json);
+    } catch (e) {
+      if (e.name !== 'AbortError') alert('Error: ' + e.message);
+    }
+  };
+
+  $('fallback').onchange = async e => {
+    try {
+      dirHandle = null;
+      const all = [...e.target.files];
+      const path = f => f.webkitRelativePath || f.name;
+      const inImages = all.filter(f => IMG_EXT.test(f.name) && /(^|\/)images\/[^/]+$/.test(path(f)));
+      const imgs = inImages.length ? inImages : all.filter(f => IMG_EXT.test(f.name) && path(f).split('/').length === 2);
+      if (!imgs.length) { alert('No images found. Choose the folder that contains index.html and the "images" folder.'); return; }
+      const j = all.filter(f => f.name === 'images.json').sort((a, b) => path(a).length - path(b).length)[0];
+      build(imgs.map(f => ({ name: f.name, file: f })), j ? await j.text() : null);
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  $('loadOrder').onclick = () => {
+    if (!lastFiles.length) { alert('Choose the site folder first.'); return; }
+    $('orderFile').click();
+  };
+  $('orderFile').onchange = async e => {
+    const f = e.target.files[0];
+    if (f) { build(lastFiles, await f.text()); setStatus('Order and info loaded from ' + f.name + ' - click Save to keep it'); $('save').disabled = false; }
+    e.target.value = '';
+  };
+
+  function readInfo(o) {
+    const v = {};
+    FIELDS.forEach(f => { v[f] = o[f] == null ? '' : String(o[f]); });
+    return FIELDS.every(f => !v[f].trim()) ? null : v;
+  }
+
+  function build(files, jsonText) {
+    lastFiles = files;
+    items.forEach(i => URL.revokeObjectURL(i.url));
+    const byName = new Map(files.map(f => [f.name, f.file]));
+    let saved = [];
+    try { saved = JSON.parse(jsonText || '[]'); }
+    catch (e) { alert('images.json is not valid JSON - starting from the file names instead.'); }
+    items = [];
+    let removed = 0;
+    for (const s of saved) {
+      const f = typeof s === 'string' ? s : s.file;          // accepts plain names and {file, function, ...} entries
+      if (byName.has(f)) { items.push(makeItem(f, byName.get(f), false, typeof s === 'object' ? readInfo(s) : null)); byName.delete(f); }
+      else removed++;
+    }
+    [...byName.keys()].sort(natCmp).forEach(n => items.push(makeItem(n, byName.get(n), true, null)));
+    selected = null; showPanel();
+    render();
+    setDirty(false);
+    const added = items.filter(i => i.isNew).length;
+    setStatus((jsonText ? 'Loaded from images.json. ' : 'No images.json found - using alphabetical order. ') + `${items.length} images` + (added ? `, ${added} new` : '') + (removed ? `, ${removed} missing entries removed` : ''));
+    if (added || removed) $('save').disabled = false;
+  }
+
+  /* ---------- cards ---------- */
+  function makeItem(file, blob, isNew, info) {
+    const item = { file, isNew, info, url: URL.createObjectURL(blob) };
+    const card = document.createElement('div'); card.className = 'card';
+    const thumb = document.createElement('div'); thumb.className = 'thumb'; thumb.draggable = true;
+    const img = document.createElement('img'); img.src = item.url; img.loading = 'lazy'; img.decoding = 'async';
+    const num = document.createElement('span'); num.className = 'num';
+    thumb.append(img, num);
+    if (isNew) { const n = document.createElement('span'); n.className = 'new'; n.textContent = 'new'; thumb.append(n); item.badge = n; }
+    const fn = document.createElement('div'); fn.className = 'file';
+    fn.textContent = file.replace(/\.[^.]+$/, ''); fn.title = file;
+    const sum = document.createElement('div'); sum.className = 'sum';
+    card.append(thumb, fn, sum);
+    card.addEventListener('click', () => select(item));
+
+    thumb.addEventListener('dragstart', e => {
+      dragItem = item;
+      blockMode = !!item.info && !e.shiftKey;
+      const idx = items.indexOf(item);
+      dragBlock = blockMode ? items.slice(idx, projectEnd(idx)) : [item];
+      setTimeout(() => dragBlock.forEach(b => b.el.classList.add('dragging')), 0);
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', file);
+      e.dataTransfer.setDragImage(card, 20, 20);
+      if (dragBlock.length > 1) setStatus(`Moving a project with ${dragBlock.length} photos`);
+    });
+    thumb.addEventListener('dragend', () => {
+      dragItem = null; dragBlock = [];
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('dragging', 'over'));
+    });
+    card.addEventListener('dragover', e => {
+      if (!dragItem || dragBlock.includes(item)) return;
+      e.preventDefault();
+      document.querySelectorAll('.card.over').forEach(c => c.classList.remove('over'));
+      card.classList.add('over');
+    });
+    card.addEventListener('drop', e => {
+      if (!dragItem || dragBlock.includes(item)) return;
+      e.preventDefault();
+      moveBlock(item);
+    });
+
+    item.el = card; item.num = num; item.sum = sum;
+    return item;
+  }
+
+  function moveBlock(target) {
+    const from = items.indexOf(dragBlock[0]), t = items.indexOf(target), n = dragBlock.length;
+    let at;
+    if (blockMode) {                       // whole project: snap to the edge of the target's project
+      const [ts, te] = projectRange(t);
+      at = projectStart(t) < 0 ? te : (t > from ? te : ts);
+      if (at > from) at -= n;
+    } else {                               // single photo: take the target's slot
+      at = t;
+    }
+    items.splice(from, n);
+    items.splice(at, 0, ...dragBlock);
+    render(); setDirty(true);
+  }
+
+  function render() {
+    $('grid').replaceChildren(...items.map(i => i.el));
+    refresh();
+  }
+  function refresh() {
+    let p = -1;
+    items.forEach((it, idx) => {
+      it.num.textContent = idx + 1;
+      if (it.info) p++;
+      it.el.style.borderTop = p >= 0 ? `4px solid hsl(${(p * 47) % 360} 60% 55%)` : '4px solid transparent';
+      const text = it.info ? Object.values(it.info).map(v => v.trim()).filter(Boolean).slice(0, 2).join(', ') : '';
+      it.sum.textContent = text;
+      it.sum.style.display = text ? '' : 'none';
+    });
+    updateNote();
+  }
+
+  /* ---------- save ---------- */
+  $('save').onclick = async () => {
+    const entry = i => {
+      if (!i.info) return JSON.stringify(i.file);
+      const o = { file: i.file };
+      FIELDS.forEach(f => { o[f] = i.info[f].trim(); });
+      return JSON.stringify(o);
+    };
+    const text = '[\n' + items.map(i => '  ' + entry(i)).join(',\n') + '\n]\n';
+    if (dirHandle) {
+      const w = await (await dirHandle.getFileHandle('images.json', { create: true })).createWritable();
+      await w.write(text); await w.close();
+      setStatus('Saved to images.json');
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      a.download = 'images.json'; a.click();
+      setStatus('Downloaded images.json - replace the one in your site folder');
+    }
+    items.forEach(i => { if (i.badge) { i.badge.remove(); i.badge = null; } i.isNew = false; });
+    dirty = false; $('save').disabled = true;
+  };
+</script>
+</body>
+</html>

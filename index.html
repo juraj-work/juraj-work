@@ -60,61 +60,32 @@
     color: #000;
     border-color: #000;
   }
+  .photo {
+    position: relative;
+  }
+  .photo.has-info {
+    cursor: pointer;
+  }
+  .photo-info {
+    display: none;
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #000;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 10px 14px;
+    pointer-events: none;
+  }
+  .photo-info.open {
+    display: block;
+  }
 </style>
 </head>
 <body>
 
-  <img src="images/page.jpg" alt="">
-  <img src="images/page2.jpg" alt="">
-  <img src="images/page3.jpg" alt="">
-  <img src="images/page4.jpg" alt="">
-  <img src="images/page5.jpg" alt="">
-  <img src="images/page6.jpg" alt="">
-  <img src="images/page7.jpg" alt="">
-  <img src="images/page8.jpg" alt="">
-  <img src="images/page9.jpg" alt="">
-  <img src="images/page10.jpg" alt="">
-  <img src="images/page11.jpg" alt="">
-  <img src="images/page12.jpg" alt="">
-  <img src="images/page13.jpg" alt="">
-  <img src="images/page14.jpg" alt="">
-  <img src="images/page15.jpg" alt="">
-  <img src="images/page16.jpg" alt="">
-  <img src="images/page17.jpg" alt="">
-  <img src="images/page18.jpg" alt="">
-  <img src="images/page19.jpg" alt="">
-  <img src="images/page20.jpg" alt="">
-  <img src="images/page21.jpg" alt="">
-  <img src="images/page22.jpg" alt="">
-  <img src="images/page23.jpg" alt="">
-  <img src="images/page24.jpg" alt="">
-  <img src="images/page25.jpg" alt="">
-  <img src="images/page26.jpg" alt="">
-  <img src="images/page27.jpg" alt="">
-  <img src="images/page28.jpg" alt="">
-  <img src="images/page29.jpg" alt="">
-  <img src="images/page30.jpg" alt="">
-  <img src="images/page31.jpg" alt="">
-  <img src="images/page32.jpg" alt="">
-  <img src="images/page33.jpg" alt="">
-  <img src="images/page34.jpg" alt="">
-  <img src="images/page35.jpg" alt="">
-  <img src="images/page36.jpg" alt="">
-  <img src="images/page37.jpg" alt="">
-  <img src="images/page38.jpg" alt="">
-  <img src="images/page39.jpg" alt="">
-  <img src="images/page40.jpg" alt="">
-  <img src="images/page41.jpg" alt="">
-  <img src="images/page42.jpg" alt="">
-  <img src="images/page43.jpg" alt="">
-  <img src="images/page44.jpg" alt="">
-  <img src="images/page45.jpg" alt="">
-  <img src="images/page46.jpg" alt="">
-  <img src="images/page47.jpg" alt="">
-  <img src="images/page48.jpg" alt="">
-  <img src="images/page49.jpg" alt="">
-  <img src="images/page50.jpg" alt="">
-  <img src="images/page51.jpg" alt="">
+  <div id="gallery"></div>
 
   <div class="text-section">
     <br><br><br><br><br><br><br><br><br>
@@ -137,6 +108,46 @@
     <br><br><br><br>
     <a id="bottom"></a>
   </div>
+
+<script>
+  fetch('images.json')
+    .then(r => r.json())
+    .then(items => {
+      const gallery = document.getElementById('gallery');
+      let current = [];                                   // info of the latest project start
+      items.forEach(item => {
+        const file = typeof item === 'string' ? item : item.file;
+        if (typeof item === 'object') {
+          const own = Object.entries(item).filter(([k, v]) => k !== 'file' && k !== 'title' && String(v).trim());
+          if (own.length) current = own;                  // a photo with info starts a new project
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'photo';
+        const img = document.createElement('img');
+        img.src = 'images/' + encodeURIComponent(file);
+        img.alt = '';
+        wrap.append(img);
+        if (current.length) {
+          const box = document.createElement('div');
+          box.className = 'photo-info';
+          current.forEach(([k, v]) => {
+            const line = document.createElement('div');
+            line.textContent = k + ': ' + v;
+            box.append(line);
+          });
+          wrap.classList.add('has-info');
+          wrap.addEventListener('click', () => {
+            const open = !box.classList.contains('open');
+            document.querySelectorAll('.photo-info.open').forEach(b => b.classList.remove('open'));
+            box.classList.toggle('open', open);
+          });
+          wrap.append(box);
+        }
+        gallery.append(wrap);
+      });
+    })
+    .catch(err => console.error('images.json could not be loaded:', err));
+</script>
 
 </body>
 </html>

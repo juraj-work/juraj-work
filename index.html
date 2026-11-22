@@ -31,8 +31,7 @@
   body {
     margin: 0;
     font-family: "Inter", sans-serif;
-    font-size: 14px;
-    font-weight: 300;   /* Light */
+    font-size: 16px;
     line-height: 1.7;
     background: #fff;
     color: #000;
@@ -61,14 +60,23 @@
     left: 0px;
     background-image: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8));
     padding: 12px 18px;
+    max-width: 90%;
+    box-sizing: border-box;
     pointer-events: none;
   }
   .photo-info.open {
     display: block;
   }
+  .photo-info.cv {
+    white-space: pre-wrap;
+  }
+  .photo-info a {
+    color: inherit;
+    pointer-events: auto;
+  }
   @media (max-width: 600px) {
     body {
-      font-size: 10px;
+      font-size: 12px;
     }
     .photo-info {
       top: 6px;
@@ -105,43 +113,63 @@
   </div>
 
 <script>
-  fetch('images.json')
-    .then(r => r.json())
-    .then(items => {
-      const gallery = document.getElementById('gallery');
-      let current = [];                                   // info of the latest project start
-      items.forEach(item => {
-        const file = typeof item === 'string' ? item : item.file;
-        if (typeof item === 'object') {
-          const own = Object.entries(item).filter(([k, v]) => k !== 'file' && k !== 'title' && String(v).trim());
-          if (own.length) current = own;                  // a photo with info starts a new project
-        }
-        const wrap = document.createElement('div');
-        wrap.className = 'photo';
-        const img = document.createElement('img');
-        img.src = 'images/' + encodeURIComponent(file);
-        img.alt = '';
-        wrap.append(img);
-        if (current.length) {
-          const box = document.createElement('div');
-          box.className = 'photo-info';
-          current.forEach(([k, v]) => {
-            const line = document.createElement('div');
-            line.textContent = k + ': ' + v;
-            box.append(line);
-          });
-          wrap.classList.add('has-info');
-          wrap.addEventListener('click', () => {
-            const open = !box.classList.contains('open');
-            document.querySelectorAll('.photo-info.open').forEach(b => b.classList.remove('open'));
-            box.classList.toggle('open', open);
-          });
-          wrap.append(box);
-        }
-        gallery.append(wrap);
-      });
-    })
-    .catch(err => console.error('images.json could not be loaded:', err));
+  // writes text into an element and turns web / e-mail addresses into links
+  function addLinked(el, text) {
+    text.split(/(https?:\/\/\S+|www\.\S+|[\w.+-]+@[\w-]+\.[\w.-]+)/g).forEach((part, i) => {
+      if (i % 2 === 0) { el.append(part); return; }
+      const a = document.createElement('a');
+      a.textContent = part;
+      a.href = part.includes('@') ? 'mailto:' + part : (part.startsWith('http') ? part : 'https://' + part);
+      a.target = '_blank';
+      el.append(a);
+    });
+  }
+
+  Promise.all([
+    fetch('cv.txt').then(r => r.ok ? r.text() : '').catch(() => ''),   // text shown when the first photo is clicked
+    fetch('images.json').then(r => r.json())
+  ]).then(([cv, items]) => {
+    const gallery = document.getElementById('gallery');
+    let current = [];                                   // info of the latest project start
+    items.forEach((item, idx) => {
+      const file = typeof item === 'string' ? item : item.file;
+      if (typeof item === 'object') {
+        const own = Object.entries(item).filter(([k, v]) => k !== 'file' && k !== 'title' && String(v).trim());
+        if (own.length) current = own;                  // a photo with info starts a new project
+      }
+      const wrap = document.createElement('div');
+      wrap.className = 'photo';
+      const img = document.createElement('img');
+      img.src = 'images/' + encodeURIComponent(file);
+      img.alt = '';
+      wrap.append(img);
+
+      let box = null;
+      if (idx === 0 && cv.trim()) {                     // first photo: shows the CV text
+        box = document.createElement('div');
+        box.className = 'photo-info cv';
+        addLinked(box, cv.trim());
+      } else if (current.length) {                      // other photos: info of their project
+        box = document.createElement('div');
+        box.className = 'photo-info';
+        current.forEach(([k, v]) => {
+          const line = document.createElement('div');
+          line.textContent = k + ': ' + v;
+          box.append(line);
+        });
+      }
+      if (box) {
+        wrap.classList.add('has-info');
+        wrap.addEventListener('click', () => {
+          const open = !box.classList.contains('open');
+          document.querySelectorAll('.photo-info.open').forEach(b => b.classList.remove('open'));
+          box.classList.toggle('open', open);
+        });
+        wrap.append(box);
+      }
+      gallery.append(wrap);
+    });
+  }).catch(err => console.error('images.json could not be loaded:', err));
 </script>
 
 </body>

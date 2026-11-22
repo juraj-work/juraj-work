@@ -1,11 +1,11 @@
 [
-  "page.jpg",
+  {"file":"page.jpg","type":"","year":"","location":"","author":"","position":"Architect"},
   {"file":"page2.jpg","type":"Kindergarten","year":"2020","location":"Zagreb","author":"Juraj Božić","position":""},
   "page3.jpg",
   "page4.jpg",
   "page5.jpg",
   {"file":"page8.jpg","type":"Mixed-use Building","year":"2022","location":"Winsen an der Luhe","author":"SKAI","position":"Architect"},
-  {"file":"page9.jpg","type":"Terraces Housing","year":"2023","location":"Hamburg","author":"SKAI","position":"Architect"},
+  {"file":"page9.jpg","type":"Terrace Housing","year":"2023","location":"Hamburg","author":"SKAI","position":"Architect"},
   "page10.jpg",
   {"file":"page11.jpg","type":"Cultural Center","year":"2025","location":"Schenefeld","author":"AHAD","position":"Design Lead"},
   "page12.jpg",

@@ -19,11 +19,15 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
 <title>juraj.work</title>
 <link rel="icon" href="favicon.jpg" type="image/x-icon">
 
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
+  html {
+    color-scheme: light;
+  }
   body {
     margin: 0;
     font-family: "Jost", Futura, "Century Gothic", Arial, sans-serif;
@@ -80,6 +84,15 @@
   }
   .photo-info.open {
     display: block;
+  }
+  @media (max-width: 600px) {
+    .photo-info {
+      top: 6px;
+      left: 8px;
+      font-size: 10px;
+      line-height: 1.5;
+      padding: 6px 9px;
+    }
   }
 </style>
 </head>

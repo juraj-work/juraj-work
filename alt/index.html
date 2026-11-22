@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+
+<script defer src="https://cloud.umami.is/script.js" data-website-id="f792625b-0197-425e-8e45-253b0f00996d"></script>
+
+<!-- Open Graph (Facebook, LinkedIn, WhatsApp) -->
+<meta property="og:title" content="Portfolio">
+<meta property="og:description" content="Juraj Bozic">
+<meta property="og:image" content="thumbnail.jpg">
+<meta property="og:url" content="https://www.juraj.work">
+<meta property="og:type" content="website">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Portfolio">
+<meta name="twitter:description" content="Juraj Bozic">
+<meta name="twitter:image" content="thumbnail.jpg">
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<title>juraj.work</title>
+<link rel="icon" href="favicon.jpg" type="image/x-icon">
+
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  html {
+    color-scheme: light;
+  }
+  body {
+    margin: 0;
+    font-family: "Jost", Futura, "Century Gothic", Arial, sans-serif;
+    background: #fff;
+    color: #000;
+  }
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .text-section {
+    max-width: 1500px;
+    margin: 80px auto;
+    padding: 0 2cm;
+    text-align: center;
+    font-size: 14px;
+    line-height: 2;
+    color: #000;
+  }
+  footer {
+    text-align: center;
+    font-size: 14px;
+    color: #000;
+    margin: 80px 0 40px;
+  }
+  footer a {
+    color: #000;
+    text-decoration: none;
+    border-bottom: 1px solid #000;
+    padding-bottom: 3px;
+  }
+  footer a:hover {
+    color: #000;
+    border-color: #000;
+  }
+  .photo {
+    position: relative;
+  }
+  .photo.has-info {
+    cursor: pointer;
+  }
+  .photo-info {
+    display: none;
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #000;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 10px 14px;
+    pointer-events: none;
+  }
+  .photo-info.open {
+    display: block;
+  }
+  @media (max-width: 600px) {
+    .photo-info {
+      top: 6px;
+      left: 8px;
+      font-size: 10px;
+      line-height: 1.5;
+      padding: 6px 9px;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <div id="gallery"></div>
+
+  <div class="text-section">
+    <br><br><br><br><br><br><br><br><br>
+    Juraj Božić, mag.ing.arch.<br>
+    Hamburg, Germany<br>
+    juraj.bozic@tutamail.com<br>
+    <a href="https://www.linkedin.com/in/juraj-bozic" style="display:inline-block; color:black;" target="_blank">www.linkedin.com/in/juraj-bozic</a><br>
+    <br><br><br>
+    
+    Worked for:<br>
+    <a href="https://katusickocbek.com/" style="display:inline-block; color:black;" target="_blank">Katušić Kocbek Arhitekti</a><br>
+    <a href="https://www.kap4.hr/projekti.html" style="display:inline-block; color:black;" target="_blank">KAP4</a><br>
+    <a href="https://3eprojekti.hr/portfolio/" style="display:inline-block; color:black;" target="_blank">3E Projekti</a><br>
+    <a href=" https://www.skaioffice.de/portfolio/" style="display:inline-block; color:black;" target="_blank">Siemer Kramer Architekten Ingenieure</a><br>
+    <a href="https://andreas-heller.de/" style="display:inline-block; color:black;" target="_blank">Studio Andreas Heller</a><br>
+    
+    <br><br><br><br><br><br><br>
+    
+    <a href="inspiration.html" style="display:inline-block; margin-top:40px; text-decoration:none; color:black; border:1px solid black; padding:10px 20px; border-radius:4px;">Inspiration →</a>
+    <br><br><br><br>
+    <a id="bottom"></a>
+  </div>
+
+<script>
+  fetch('images.json')
+    .then(r => r.json())
+    .then(items => {
+      const gallery = document.getElementById('gallery');
+      let current = [];                                   // info of the latest project start
+      items.forEach(item => {
+        const file = typeof item === 'string' ? item : item.file;
+        if (typeof item === 'object') {
+          const own = Object.entries(item).filter(([k, v]) => k !== 'file' && k !== 'title' && String(v).trim());
+          if (own.length) current = own;                  // a photo with info starts a new project
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'photo';
+        const img = document.createElement('img');
+        img.src = 'images/' + encodeURIComponent(file);
+        img.alt = '';
+        wrap.append(img);
+        if (current.length) {
+          const box = document.createElement('div');
+          box.className = 'photo-info';
+          current.forEach(([k, v]) => {
+            const line = document.createElement('div');
+            line.textContent = k + ': ' + v;
+            box.append(line);
+          });
+          wrap.classList.add('has-info');
+          wrap.addEventListener('click', () => {
+            const open = !box.classList.contains('open');
+            document.querySelectorAll('.photo-info.open').forEach(b => b.classList.remove('open'));
+            box.classList.toggle('open', open);
+          });
+          wrap.append(box);
+        }
+        gallery.append(wrap);
+      });
+    })
+    .catch(err => console.error('images.json could not be loaded:', err));
+</script>
+
+</body>
+</html>
